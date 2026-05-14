@@ -1,7 +1,13 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+from rest_framework.authtoken.views import obtain_auth_token
 
-from clinic.views import index
+from clinic.viewsets import DoctorViewSet
+
+router = DefaultRouter()
+router.register("doctors", DoctorViewSet, basename="doctor")
 
 urlpatterns = [
-    path("",index, name="index"),
+    path("", include(router.urls)),
+    path("auth/login/", obtain_auth_token, name="auth-login"),
 ]
