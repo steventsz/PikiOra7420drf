@@ -1,6 +1,43 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
 
 from clinic.models import Appointment, AppointmentSlot, Doctor
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True)
+    password_confirm = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "password", "password_confirm"]
+        read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("password_confirm")
+        return User.objects.create_user(**validated_data)
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "is_staff",
+        ]
+        read_only_fields = fields
 
 
 class DoctorSerializer(serializers.ModelSerializer):
