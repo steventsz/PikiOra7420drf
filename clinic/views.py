@@ -53,7 +53,7 @@ class LoginView(APIView):
         )
 
 
-class UserView(APIView):
+class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

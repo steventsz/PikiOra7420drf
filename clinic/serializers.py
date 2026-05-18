@@ -36,8 +36,16 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "is_staff",
+            "is_active",
+            "date_joined",
+            "last_login",
         ]
-        read_only_fields = fields
+        read_only_fields = [
+            "id",
+            "username",
+            "date_joined",
+            "last_login",
+        ]
 
 
 class DoctorSerializer(serializers.ModelSerializer):

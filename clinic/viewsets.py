@@ -1,5 +1,7 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers, viewsets
+from rest_framework.permissions import IsAdminUser
 
 from clinic.models import Appointment, AppointmentSlot, Doctor
 from clinic.permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
@@ -7,7 +9,22 @@ from clinic.serializers import (
     AppointmentSerializer,
     AppointmentSlotSerializer,
     DoctorSerializer,
+    UserSerializer,
 )
+
+
+User = get_user_model()
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all().order_by("id")
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    http_method_names = ["get", "patch", "delete", "head", "options"]
+
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save(update_fields=["is_active"])
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
