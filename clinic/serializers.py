@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework import serializers
 
 from clinic.models import Appointment, AppointmentSlot, Doctor
@@ -82,6 +83,12 @@ class AppointmentSlotSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "doctor_name", "slot_time", "created_at"]
 
+    def validate_date(self, value):
+        if value < timezone.localdate():
+            raise serializers.ValidationError("Slot date cannot be in the past.")
+
+        return value
+
     def validate(self, attrs):
         doctor = attrs.get("doctor", getattr(self.instance, "doctor", None))
         date = attrs.get("date", getattr(self.instance, "date", None))
@@ -107,6 +114,10 @@ class AppointmentSlotSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
+    patient = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+    )
     patient_username = serializers.CharField(source="patient.username", read_only=True)
     doctor_name = serializers.CharField(source="slot.doctor.name", read_only=True)
     slot_date = serializers.DateField(source="slot.date", read_only=True)
@@ -129,7 +140,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "patient",
             "patient_username",
             "doctor_name",
             "slot_date",
@@ -143,6 +153,34 @@ class AppointmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             raise serializers.ValidationError("You must be logged in to book appointments.")
+
+        patient_was_provided = "patient" in attrs
+        patient = attrs.get("patient")
+
+        if self.instance:
+            if (
+                patient_was_provided
+                and not request.user.is_staff
+                and patient != self.instance.patient
+            ):
+                raise serializers.ValidationError(
+                    "You cannot change the patient for this appointment."
+                )
+        else:
+            if request.user.is_staff and not patient_was_provided:
+                raise serializers.ValidationError(
+                    "Staff users must choose a patient for the appointment."
+                )
+
+            if (
+                patient_was_provided
+                and not request.user.is_staff
+                and patient != request.user
+            ):
+                raise serializers.ValidationError(
+                    "You cannot create an appointment for another patient."
+                )
+
         #Existing appointments cannot change 'slot'
         if self.instance and "slot" in attrs and attrs["slot"] != self.instance.slot:
             raise serializers.ValidationError(
@@ -157,6 +195,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("New appointments must be created as booked.")
         #Check if the 'slot' is available for booking
         if status == "booked" and slot:
+            if not slot.doctor.is_active:
+                raise serializers.ValidationError(
+                    "Appointments cannot be booked with an inactive doctor."
+                )
+
             active_appointments = Appointment.objects.filter(
                 slot=slot,
                 status="booked",

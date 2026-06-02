@@ -95,13 +95,23 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 pk=serializer.validated_data["slot"].pk
             )
 
+            if not slot.doctor.is_active:
+                raise serializers.ValidationError(
+                    "Appointments cannot be booked with an inactive doctor."
+                )
+
             if not slot.is_available or Appointment.objects.filter(
                 slot=slot,
                 status="booked",
             ).exists():
                 raise serializers.ValidationError("This slot is already booked.")
 
-            serializer.save(patient=self.request.user, slot=slot)
+            if self.request.user.is_staff:
+                patient = serializer.validated_data["patient"]
+            else:
+                patient = self.request.user
+
+            serializer.save(patient=patient, slot=slot)
             slot.is_available = False
             slot.save(update_fields=["is_available"])
 
@@ -116,6 +126,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             )
 
             if new_status == "booked" and old_status != "booked":
+                if not slot.doctor.is_active:
+                    raise serializers.ValidationError(
+                        "Appointments cannot be booked with an inactive doctor."
+                    )
+
                 has_active_booking = Appointment.objects.filter(
                     slot=slot,
                     status="booked",
