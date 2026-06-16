@@ -10,6 +10,7 @@ djangorestframework==3.17.1
 djangorestframework-stubs==3.16.9
 Markdown==3.10.2
 pillow==12.2.0
+psycopg[binary]>=3.2,<4
 sqlparse==0.5.5
 types-PyYAML==6.0.12.20260510
 typing_extensions==4.15.0

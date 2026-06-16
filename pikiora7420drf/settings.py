@@ -10,10 +10,30 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_local_env(env_path):
+    """Load simple KEY=VALUE pairs from a local .env file."""
+    if not env_path.exists():
+        return
+
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+load_local_env(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -79,12 +99,34 @@ WSGI_APPLICATION = 'pikiora7420drf.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+PGHOST = os.environ.get('PGHOST')
+PGUSER = os.environ.get('PGUSER')
+PGDATABASE = os.environ.get('PGDATABASE')
+PGPASSWORD = os.environ.get('PGPASSWORD')
+
+if PGHOST and PGUSER and PGDATABASE and PGPASSWORD:
+    default_sslmode = 'prefer' if PGHOST in {'localhost', '127.0.0.1'} else 'require'
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': PGDATABASE,
+            'USER': PGUSER,
+            'PASSWORD': PGPASSWORD,
+            'HOST': PGHOST,
+            'PORT': os.environ.get('PGPORT', '5432'),
+            'OPTIONS': {
+                'sslmode': os.environ.get('PGSSLMODE', default_sslmode),
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
